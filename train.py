@@ -2,6 +2,8 @@ import time
 import torch.backends.cudnn as cudnn
 import torch.optim
 import torch.utils.data
+import torch
+import torch.nn as nn
 from model import SSD300, MultiBoxLoss
 from datasets import PascalVOCDataset
 from utils import *
@@ -31,6 +33,7 @@ grad_clip = None  # clip if gradients are exploding, which may happen at larger 
 
 cudnn.benchmark = True
 
+num_GPU = torch.cuda.device_count()
 
 def main():
     """
@@ -62,9 +65,16 @@ def main():
         model = checkpoint['model']
         optimizer = checkpoint['optimizer']
 
-    # Move to default device
-    model = model.to(device)
+    #model = model.to(device)
     criterion = MultiBoxLoss(priors_cxcy=model.priors_cxcy).to(device)
+
+    # For device with more than 1 GPU
+    if num_GPU > 1:
+        model = nn.DataParallel(model)
+
+    # Move to default device
+    print("Using {} GPU(s).".format(num_GPU))
+    model = model.to(device)
 
     # Custom dataloaders
     train_dataset = PascalVOCDataset(data_folder,
